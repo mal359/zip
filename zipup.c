@@ -651,6 +651,7 @@ struct zlist far *z;    /* zip entry to compress */
   ush tempcext = 0;
   char *tempextra = NULL;
   char *tempcextra = NULL;
+  const char *source_date_epoch = NULL;
 
   int perc;
 
@@ -1264,6 +1265,13 @@ Restart_As_Binary:
 
   } /* strcmp(z->name, "-") == 0 */
 
+  if (extra_fields == 0 && (source_date_epoch = getenv("SOURCE_DATE_EPOCH")) != NULL) {
+     time_t epoch = strtoull(source_date_epoch, NULL, 10);
+     if (epoch > 0) {
+       ulg epochtim = unix2dostime(&epoch);
+       if (z->tim > epochtim) z->tim = epochtim;
+     }
+  }
   if (extra_fields == 2) {
     unsigned lenl, lenc;
     char *pl, *pc;

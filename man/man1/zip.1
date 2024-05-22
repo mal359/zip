@@ -5087,6 +5087,11 @@ but also copies over any unrecognized extra fields.  This could be useful
 if the archive came from a utility that works with extra fields not known
 to \fBzip\fP and you plan to use the archive with that utility again.
 
+This option also enables \fI\Reproducible Builds\fP comforming to the
+\fBSOURCE_DATE_EPOCH\fR specification. If this value is set, it shall
+contain a numeric Unix timestamp specifying the newest allowed value of
+file timestamps. Any value newer than it will be clamped back.
+
 .TP
 .PD 0
 .B \-y

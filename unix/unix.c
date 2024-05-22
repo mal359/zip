@@ -548,6 +548,10 @@ DIR *dirp;
 #define closedir(dirp) fclose(dirp)
 #endif /* NO_DIR */
 
+#ifdef NO_SCANDIR
+/* TODO Port the FreeBSD libc version */
+#error "We need scandir now."
+#endif
 
 local char *readd(d)
 DIR *d;                 /* directory stream to read from */
@@ -568,12 +572,13 @@ int caseflag;           /* true to force case-sensitive match */
    an error code in the ZE_ class. */
 {
   char *a;              /* path and name for recursion */
-  DIR *d;               /* directory stream from opendir() */
-  char *e;              /* pointer to name from readd() */
+  int c;                /* number of entries from scandir */
+  int i;                /* entry index */
   int m;                /* matched flag */
   char *p;              /* path for recursion */
   z_stat s;             /* result of stat() */
   struct zlist far *z;  /* steps through zfiles list */
+  struct dirent **namelist;
 
   if (strcmp(n, "-") == 0) { /* if compressing stdin */
     return newname(n, 0, caseflag);
@@ -677,9 +682,10 @@ int caseflag;           /* true to force case-sensitive match */
       }
     }
     /* recurse into directory */
-    if (recurse && (d = opendir(n)) != NULL)
+    if (recurse && (c = scandir(".", &namelist, NULL, alphasort)) >= 0)
     {
-      while ((e = readd(d)) != NULL) {
+      for (i = 0; i < c; i++) {
+        e = namelist[i]->d_name;
         if (strcmp(e, ".") && strcmp(e, ".."))
         {
           if ((a = malloc(strlen(p) + strlen(e) + 1)) == NULL)
@@ -698,8 +704,9 @@ int caseflag;           /* true to force case-sensitive match */
           }
           free((zvoid *)a);
         }
+        free(namelist[i]);
       }
-      closedir(d);
+      free(namelist);
     }
     free((zvoid *)p);
   } /* S_ISDIR( s.st_mode) [else if] */
@@ -1256,6 +1263,9 @@ local int wild_recurse(whole, wildtail)
   int wholelen;
   char *newpath;
   int pathlen;
+  int c;                /* number of entries from scandir */
+  int i;                /* entry index */
+  struct dirent **namelist = NULL;
 
 #if 0
   zprintf(" {in wild_recurse: whole '%s' wildtail '%s'}\n", whole, wildtail);
@@ -1312,9 +1322,10 @@ local int wild_recurse(whole, wildtail)
     e = ZE_MISS;                            /* non-wild name not found */
     goto ohforgetit;
   }
-
-  while ((name = readd(dir)) != NULL) {
-
+  
+  c = scandir(newwhole, &namelist, NULL, alphasort);
+  for (i = 0; i < c; i++) {
+    name = namelist[i]->d_name;
     if (strcmp(name, ".") && strcmp(name, "..") &&
         MATCH(wildtail, name, 1)) {
       pathlen = newlen + strlen(name) + 2;
@@ -1341,9 +1352,14 @@ local int wild_recurse(whole, wildtail)
       else if (e != ZE_MISS)
         break;
     }
+    free(namelist[i]);
   }
 
 ohforgetit:
+  if (namelist) {
+    for (; i < c; i++) free(namelist[i]);
+    free(namelist);
+  }
   if (dir) closedir(dir);
   if (subwild) *--subwild = PATH_END;
   if (newwhole) free(newwhole);
